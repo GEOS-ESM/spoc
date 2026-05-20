@@ -10,7 +10,7 @@ from bufr.obs_builder import ObsBuilder, add_main_functions, map_path
 from prepbufr_obs_builder import PrepbufrObsBuilder
 from bufr.encoders import netcdf
 
-MAPPING_PATH = map_path('prepbufr_adpupa.yaml')
+MAPPING_PATH = map_path('prepbufr_sonde.yaml')
 FILE_ENCODER_DICT = {'netcdf': netcdf.Encoder}
 
 class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
@@ -21,8 +21,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
     """
 
     def __init__(self):
-        blacklist_path=os.path.join(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),'aux'),'gmao_global_blacklist.txt')
-        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist=blacklist_path)
+        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist_path='/discover/nobackup/jemccurr/bufr-query/custom_tests/gmao_global_blacklist.txt')
 
 
     def make_obs(self, comm, input_path):
@@ -45,6 +44,10 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            #make timestamp and drift corrections
            self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
            self._correct_drift_times(container, self._get_reference_time(input_path),catID=cat)
+
+           #correct launchtime to int -  needed for sonde variational yaml
+           dhr = container.get('launchTimeMinusCycleTime',cat).astype(np.int64)
+
 
            self.log.debug(f'Make an array of 0s for ObsSubType')
            obsSubType = np.zeros(hrdr.shape, dtype=np.int32)
@@ -73,7 +76,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            air_temperatureError = self._compute_conditional_array(toboe, (tpc >= 1) & (tpc < 8) &  (~air_temperature_blacklist))
 
            self.log.debug(f'Perform virtualTemperature, virtualTemperatureQM, and virtualTemperatureError calculations')
-           virtual_temperature_blacklist=self._get_blacklist(container,'tv',catID=cat)
+           virtual_temperature_blacklist=self._get_blacklist(container,'t',catID=cat)
 
            virtual_temperature = self._compute_conditional_array(tob, (tpc == 8)  & (~virtual_temperature_blacklist))
            virtual_temperatureQM = self._compute_conditional_array(tobqm, (tpc == 8)  & (~virtual_temperature_blacklist))
@@ -118,6 +121,8 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            container.replace('windNorthward', wind_northward,cat)
            container.replace('windQualityMarker', wind_QC,cat)
            container.replace('windError', wind_Error,cat)
+
+           container.replace('launchTimeMinusCycleTime',dhr,cat)
 
            self.log.debug(f'Add new/derived variables into container')
            ydr_paths = container.get_paths('latitude',cat)

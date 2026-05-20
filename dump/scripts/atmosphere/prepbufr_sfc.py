@@ -14,8 +14,8 @@ MAPPING_PATH = map_path('prepbufr_sfc.yaml')
 
 class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
     def __init__(self):
-        blacklist_path=os.path.join(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),'aux'),'gmao_global_blacklist.txt')
-        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist=blacklist_path)
+        blacklist_path=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),'gmao_global_blacklist.txt')
+        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist_path=blacklist_path)
 
     def _make_description(self):
         description = super()._make_description()
@@ -83,12 +83,14 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
 
         #loop through categories - in this case observation type from bufr typ field
         for cat in container.all_sub_categories():
-
            self.log.debug(f'Do DateTime calculation')
            dhr = container.get('obsTimeMinusCycleTime',cat)
            dhr_paths = container.get_paths('obsTimeMinusCycleTime',cat)
            dhr2 = np.array(dhr)
            self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
+
+           if dhr.size == 0:
+              break
 
            sid = container.get('stationIdentification',cat)
            sid_paths=container.get_paths('stationIdentification',cat) 
@@ -103,24 +105,30 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            #container is updated here instead of end to ensure surface height/additional calculations
            #included in the prepbufr_obsbuilder module get the corrected type info
            typ_drifter_correct=self._compute_drifting_buoys(typ,t29,sid)
-
            container.replace('observationType',typ_drifter_correct,cat) #container should be updated here
-
            self.log.debug(f'Do surface ob height correction')
            self._correct_surface_height(container,cat)
 
            self.log.debug(f'Perform stationPressure, stationPressureQM calculations')
            pbdlcat = container.get('prepbufrDataLevelCategory',cat)
            pob = container.get('stationPressureObsValue',cat)
+           print(pob.fill_value)
+           print(pob.dtype)
            pqm = container.get('stationPressureQualityMarker',cat)
            poe = container.get('stationPressureObsError',cat)
            pmsl = container.get('pressureReducedToMeanSeaLevelObsValue',cat) 
+           print(pmsl.fill_value)
+           print(pmsl.dtype)
            pmq = container.get('pressureReducedToMeanSeaLevelQualityMarker',cat) 
            pmin = container.get('pmoIndicator',cat)
            station_elv = container.get('stationElevation',cat)
-           pob_corrected = self._correct_ship_pressure(typ_drifter_correct,t29,pob,pmsl,pmq,pmin)
+           obs_elv = container.get('height',cat)
+           pob_corrected = self._correct_ship_pressure(typ_drifter_correct,t29,obs_elv,pob,pmsl,pmq,pmin)
+           print(pob_corrected.fill_value)
+           print(pob_corrected.dtype)
            station_pressure_blacklist=self._get_blacklist(container,'ps',catID=cat)
-           station_pressure = self._compute_conditional_array(pob_corrected,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
+           station_pressure = self._compute_conditional_array(pob_corrected,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist))).astype(np.float32)
+           print(station_pressure.dtype)
            station_pressureQM = self._compute_conditional_array(pqm,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
            station_pressureError = self._compute_conditional_array(poe,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
 
@@ -146,7 +154,7 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            tvooe = np.where((tpc == 8), toboe, tvooe)
 
            air_temperature_blacklist=self._get_blacklist(container,'t',catID=cat)
-           virtual_temperature_blacklist=self._get_blacklist(container,'tv',catID=cat)
+           virtual_temperature_blacklist=self._get_blacklist(container,'t',catID=cat)
 
            tsen[air_temperature_blacklist]=tob.fill_value
            tsenqm[air_temperature_blacklist]=tobqm.fill_value
@@ -205,6 +213,8 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            container.add('sequenceNumber', obsSubType, dhr_paths,cat)
            container.add('obsSubType', obsSubType, dhr_paths,cat)
 
+           new_latitudes=self._filter_identical(container,catID=cat) #identify identical obs and add to mask 
+           container.replace('latitude',new_latitudes,cat)
            container.apply_mask(~container.get('latitude',cat).mask,cat)
 
         self.log.debug(f'container list (updated): {container.list()}')
@@ -215,8 +225,10 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
         ################################################
         # collect ship data
         for var_name in container.list():
-           var = np.concatenate((container.get(var_name, ['surface_marine_mass_rp']),\
+           var = np.concatenate((container.get(var_name, ['surface_marine_mass_atlas']),\
+                          container.get(var_name, ['surface_marine_mass_rp']),\
                           container.get(var_name, ['surface_marine_mass_np']),\
+                          container.get(var_name, ['surface_marine_wind_atlas']),\
                           container.get(var_name, ['surface_marine_wind_rp']),\
                           container.get(var_name, ['surface_marine_wind_np'])),axis=0)
            new_container.add(var_name,
@@ -235,12 +247,14 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
                       ['adpsfc'])
         return new_container
 
-    def _correct_ship_pressure(self,typ,t29,pob,pmsl,pmq,pmin):
+    def _correct_ship_pressure(self,typ,t29,oelv,pob,pmsl,pmq,pmin):
         #performs correction of reported station pressure for ship (kx180) obs 
         #by swapping reported pressure with pressure reduced to mean sea level 
         #where available and where subtype is between 522 and 525
-        mask_pmsl = ((typ==180)&(t29 >=522)&(t29 <= 525)&(pmq<4)&(np.rint(pmin)==0))
-        return np.ma.where(mask_pmsl,pmsl,pob)
+        mask_pmsl = ((oelv==0)&(typ==180)&(t29 >=522)&(t29 <= 525)&(pmq<4)&(np.rint(pmin)==0))
+        new_pressure=np.ma.where(mask_pmsl,pmsl,pob)
+        np.ma.set_fill_value(new_pressure, pob.fill_value)
+        return new_pressure
     def _compute_drifting_buoys(self,typ,t29,sid):
         #changes kx values for drifting buoys idenfitied by subtype and wmo number 
         def check_condition(x):

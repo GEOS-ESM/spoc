@@ -41,6 +41,8 @@ bufr:
       query: "*/PRSLEVLA/DRFTINFO/YDR"
     obsTimeMinusCycleTime:
       query: "*/PRSLEVLA/DRFTINFO/HRDR"
+    launchTimeMinusCycleTime:
+      query: "*/DHR"
     heightOfStation: #Formerly aircraftFlightLevel
       query: "*/PRSLEVLA/Z___INFO/Z__EVENT{1}/ZOB"
     stationElevation:
@@ -177,12 +179,17 @@ encoder:
       units: 'seconds since 1970-01-01T00:00:00Z'
       longName: "dateTime"
 
+    - name: "MetaData/releaseTime"
+      source: variable/launchTimeMinusCycleTime
+      longName: "releaseTime"
+      units: "seconds since cycle time"
+
     - name: "MetaData/pressure"
       source: variables/pressure
       longName: "Pressure"
       units: "Pa"
 
-    - name: "MetaData/heightOfStation"
+    - name: "MetaData/height"
       source: variables/heightOfStation
       longName: "Height Of Station"
       units: "m"

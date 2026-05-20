@@ -148,7 +148,7 @@ encoder:
     - name: "ObsType/pressure"
       source: variables/observationType
       longName: "Pressure Observation Type"
-
+    
     # Observation Type: airTemperature
     - name: "ObsType/airTemperature"
       source: variables/observationType
@@ -179,6 +179,12 @@ encoder:
       source: variables/timestamp
       longName: "Datetime"
       units: "seconds since 1970-01-01T00:00:00Z"
+
+    # MetaData: releaseTime
+    - name: "MetaData/releaseTime"
+      source: variable/launchTimeMinusCycleTime
+      longName: "releaseTime"
+      units: "seconds since cycle time"
 
     # MetaData: stationIdentification
     - name: "MetaData/stationIdentification"

@@ -113,10 +113,12 @@ bufr:
         map:
           _180: surface_marine_mass_rp 
           _181: surface_land_mass_rp 
+          _182: surface_marine_mass_atlas
           _183: surface_marine_mass_np
           _187: surface_metar_mass_np
           _280: surface_marine_wind_rp
           _281: surface_land_wind_rp
+          _282: surface_marine_wind_atlas
           _284: surface_marine_wind_np
           _287: surface_metar_wind_np
 
