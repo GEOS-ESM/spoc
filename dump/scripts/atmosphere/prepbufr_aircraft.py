@@ -66,7 +66,8 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
         dhr = container.get('obsTimeMinusCycleTime')
         dhr_paths = container.get_paths('obsTimeMinusCycleTime')
         dhr2 = np.array(dhr)
-        self._replace_timestamp(container, self._get_reference_time(input_path))
+        #timestamp replacement not needed if done in yaml
+        #self._replace_timestamp(container, self._get_reference_time(input_path))
 
         self.log.debug(f'Make an array of 0s for MetaData/sequenceNumber')
         sequenceNum = self._compute_sequence_number(lon)

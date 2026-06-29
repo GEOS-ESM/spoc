@@ -10,7 +10,7 @@ from bufr.obs_builder import ObsBuilder, add_main_functions, map_path
 from prepbufr_obs_builder import PrepbufrObsBuilder
 from bufr.encoders import netcdf
 
-MAPPING_PATH = map_path('prepbufr_sonde.yaml')
+MAPPING_PATH = map_path('prepbufr_adpupa.yaml')
 FILE_ENCODER_DICT = {'netcdf': netcdf.Encoder}
 
 class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
@@ -42,11 +42,11 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            else:
                continue 
            #make timestamp and drift corrections
-           self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
+           #self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
            self._correct_drift_times(container, self._get_reference_time(input_path),catID=cat)
 
            #correct launchtime to int -  needed for sonde variational yaml
-           dhr = container.get('launchTimeMinusCycleTime',cat).astype(np.int64)
+           #dhr = container.get('launchTimeMinusCycleTime',cat).astype(np.int64)
 
 
            self.log.debug(f'Make an array of 0s for ObsSubType')
@@ -122,7 +122,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            container.replace('windQualityMarker', wind_QC,cat)
            container.replace('windError', wind_Error,cat)
 
-           container.replace('launchTimeMinusCycleTime',dhr,cat)
+           #container.replace('launchTimeMinusCycleTime',dhr,cat)
 
            self.log.debug(f'Add new/derived variables into container')
            ydr_paths = container.get_paths('latitude',cat)
@@ -144,17 +144,17 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
         # Add pibal data
         for var_name in container.list():
               new_container.add(var_name,
-                      container.get(var_name, ['pibal_221']),
-                      container.get_paths(var_name, ['pibal_221']),
+                      container.get(var_name, ['pibal']),
+                      container.get_paths(var_name, ['pibal']),
                       ['pibal'])
         # Add sonde data
-        available_sonde=['sonde_120','sonde_132','sonde_220','sonde_232']
+        available_sonde=['sonde_mass','recon_mass','sonde_wind','recon_wind']
         active_sonde=[cat for cat in active_subcats if cat in available_sonde]
         for var_name in container.list():
            var = np.concatenate([container.get(var_name, [cat]) for cat in active_sonde], axis=0)
            new_container.add(var_name,
                       var,
-                      container.get_paths(var_name, [active_subcats[0]]),
+                      container.get_paths(var_name, [active_sonde[0]]),
                       ['sonde'])
         return new_container
 

@@ -14,12 +14,12 @@ def map_path(map_file_name):
     return os.path.join(script_dir, map_file_name)
 
 class PrepbufrObsBuilder(ObsBuilder):
-    def __init__(self, mapping_path, log_name=os.path.basename(__file__),blacklist=None):
+    def __init__(self, mapping_path, log_name=os.path.basename(__file__),blacklist_path=None):
         super().__init__(mapping_path, log_name=log_name)
         self.blacklist_data = {}
         self.driftdat_types=[120,220,221] #kx types with drift information on position and time
-        if blacklist and os.path.exists(blacklist):
-            self._load_text_blacklist(blacklist)
+        if blacklist_path and os.path.exists(blacklist_path):
+            self._load_text_blacklist(blacklist_path)
 
     def _compute_conditional_array(self, source_array, condition_mask):
         """

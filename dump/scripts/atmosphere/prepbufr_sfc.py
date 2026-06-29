@@ -80,17 +80,21 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
         self.log.info('Get container from bufr')
         container = super().make_obs(comm, input_path)
         self.log.debug(f'container list (original): {container.list()}')
-
+        active_subcats=[]
         #loop through categories - in this case observation type from bufr typ field
         for cat in container.all_sub_categories():
            self.log.debug(f'Do DateTime calculation')
            dhr = container.get('obsTimeMinusCycleTime',cat)
            dhr_paths = container.get_paths('obsTimeMinusCycleTime',cat)
            dhr2 = np.array(dhr)
-           self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
+           #no need to replace timestamp if modified in yaml
+           #self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
 
-           if dhr.size == 0:
-              break
+           #skip category if empty
+           if dhr.size>0:
+               active_subcats.append(cat[0])
+           else:
+               continue
 
            sid = container.get('stationIdentification',cat)
            sid_paths=container.get_paths('stationIdentification',cat) 
@@ -112,23 +116,16 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            self.log.debug(f'Perform stationPressure, stationPressureQM calculations')
            pbdlcat = container.get('prepbufrDataLevelCategory',cat)
            pob = container.get('stationPressureObsValue',cat)
-           print(pob.fill_value)
-           print(pob.dtype)
            pqm = container.get('stationPressureQualityMarker',cat)
            poe = container.get('stationPressureObsError',cat)
            pmsl = container.get('pressureReducedToMeanSeaLevelObsValue',cat) 
-           print(pmsl.fill_value)
-           print(pmsl.dtype)
            pmq = container.get('pressureReducedToMeanSeaLevelQualityMarker',cat) 
            pmin = container.get('pmoIndicator',cat)
            station_elv = container.get('stationElevation',cat)
            obs_elv = container.get('height',cat)
            pob_corrected = self._correct_ship_pressure(typ_drifter_correct,t29,obs_elv,pob,pmsl,pmq,pmin)
-           print(pob_corrected.fill_value)
-           print(pob_corrected.dtype)
            station_pressure_blacklist=self._get_blacklist(container,'ps',catID=cat)
            station_pressure = self._compute_conditional_array(pob_corrected,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist))).astype(np.float32)
-           print(station_pressure.dtype)
            station_pressureQM = self._compute_conditional_array(pqm,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
            station_pressureError = self._compute_conditional_array(poe,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
 
@@ -224,26 +221,22 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
         #refactor obstype split into surface and ship obs spaces
         ################################################
         # collect ship data
+        available_sfcship=['surface_marine_mass_rp','surface_marine_mass_atlas','surface_marine_mass_np','surface_marine_wind_rp','surface_marine_wind_atlas','surface_marine_wind_np']
+        active_sfcship=[cat for cat in active_subcats if cat in available_sfcship]
         for var_name in container.list():
-           var = np.concatenate((container.get(var_name, ['surface_marine_mass_atlas']),\
-                          container.get(var_name, ['surface_marine_mass_rp']),\
-                          container.get(var_name, ['surface_marine_mass_np']),\
-                          container.get(var_name, ['surface_marine_wind_atlas']),\
-                          container.get(var_name, ['surface_marine_wind_rp']),\
-                          container.get(var_name, ['surface_marine_wind_np'])),axis=0)
+           var = np.concatenate([container.get(var_name, [cat]) for cat in active_sfcship], axis=0)
            new_container.add(var_name,
                       var,
-                      container.get_paths(var_name, ['surface_marine_mass_rp']),
+                      container.get_paths(var_name, [active_sfcship[0]]),
                       ['sfcshp'])
         # collect land surface data
+        available_sfc=['surface_land_mass_rp','surface_metar_mass_np','surface_land_wind_rp','surface_metar_wind_np']
+        active_sfc=[cat for cat in active_subcats if cat in available_sfc]
         for var_name in container.list():
-           var = np.concatenate((container.get(var_name, ['surface_land_mass_rp']),\
-                          container.get(var_name, ['surface_metar_mass_np']),\
-                          container.get(var_name, ['surface_land_wind_rp']),\
-                          container.get(var_name, ['surface_metar_wind_np'])),axis=0)
+           var = np.concatenate([container.get(var_name, [cat]) for cat in active_sfc], axis=0)
            new_container.add(var_name,
                       var,
-                      container.get_paths(var_name, ['surface_land_mass_rp']),
+                      container.get_paths(var_name, [active_sfc[0]]),
                       ['adpsfc'])
         return new_container
 
