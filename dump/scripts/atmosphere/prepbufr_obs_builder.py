@@ -114,12 +114,11 @@ class PrepbufrObsBuilder(ObsBuilder):
 
         return np.asarray(mask) 
 
-    def _filter_identical(self, container: bufr.DataContainer,issurfacepressure='NA',catID=[]):
+    def _filter_identical(self, container: bufr.DataContainer,catID=[]):
         """
         Removes observations with identical lat,lon,pressure,time and station ID
         To correspond to GSI setup scripts 
 
-        Parameters: container object, boolean - is surface pressure ob (these do not compare pres)
         """
 
         # Example Data
@@ -129,16 +128,17 @@ class PrepbufrObsBuilder(ObsBuilder):
         pressure = container.get('pressure',catID) 
         sid      = container.get('stationIdentification',catID) 
         otype    = container.get('observationType',catID)
-        dtype = [('lat', 'f8'), ('lon', 'f8'), ('time', 'f8'), ('pres', 'f8'), ('sid', 'U10'),('otype', 'int64')]
+
+        dtype = [('lat', 'f8'), ('lon', 'f8'), ('time', 'f8'), ('sid', 'U10'), ('otype', 'int64'), ('pres', 'f8')]
 
         # 2. Create the structured array
         structured_data = np.empty(len(lat), dtype=dtype)
         structured_data['lat'] = lat.data
         structured_data['lon'] = lon.data
         structured_data['time'] = time.data
-        structured_data['pres'] = pressure.data
         structured_data['sid'] = sid.data
         structured_data['otype'] = otype.data
+        structured_data['pres'] = pressure.data
 
         # 4. Find the first occurrences
         # We do NOT use axis=0 here. Because it's a structured array, 

@@ -215,7 +215,7 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            container.apply_mask(~container.get('latitude',cat).mask,cat)
 
         self.log.debug(f'container list (updated): {container.list()}')
-        category_map = {'splits/obsType': ['sfcshp','adpsfc']}
+        category_map = {'splits/obsType': ['sfcship','sfc']}
         new_container = bufr.DataContainer(category_map)
         ################################################
         #refactor obstype split into surface and ship obs spaces
@@ -228,7 +228,7 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            new_container.add(var_name,
                       var,
                       container.get_paths(var_name, [active_sfcship[0]]),
-                      ['sfcshp'])
+                      ['sfcship'])
         # collect land surface data
         available_sfc=['surface_land_mass_rp','surface_metar_mass_np','surface_land_wind_rp','surface_metar_wind_np']
         active_sfc=[cat for cat in active_subcats if cat in available_sfc]
@@ -237,7 +237,7 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            new_container.add(var_name,
                       var,
                       container.get_paths(var_name, [active_sfc[0]]),
-                      ['adpsfc'])
+                      ['sfc'])
         return new_container
 
     def _correct_ship_pressure(self,typ,t29,oelv,pob,pmsl,pmq,pmin):

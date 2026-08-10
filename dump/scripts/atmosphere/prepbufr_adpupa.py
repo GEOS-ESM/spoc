@@ -41,13 +41,8 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
                active_subcats.append(cat[0])
            else:
                continue 
-           #make timestamp and drift corrections
-           #self._replace_timestamp(container, self._get_reference_time(input_path),catID=cat)
+           #make drift corrections
            self._correct_drift_times(container, self._get_reference_time(input_path),catID=cat)
-
-           #correct launchtime to int -  needed for sonde variational yaml
-           #dhr = container.get('launchTimeMinusCycleTime',cat).astype(np.int64)
-
 
            self.log.debug(f'Make an array of 0s for ObsSubType')
            obsSubType = np.zeros(hrdr.shape, dtype=np.int32)
@@ -107,15 +102,15 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            self.log.debug(f'Update variables into container')
            container.replace('airTemperature', air_temperature,cat)
            container.replace('airTemperatureQualityMarker', air_temperatureQM,cat)
-           container.replace('airTemperatureQualityMarker', air_temperatureQM,cat)
+           container.replace('airTemperatureError', air_temperatureError,cat)
 
            container.replace('virtualTemperature', virtual_temperature,cat)
            container.replace('virtualTemperatureQualityMarker', virtual_temperatureQM,cat)
-           container.replace('virtualTemperatureQualityMarker', virtual_temperatureQM,cat)
+           container.replace('virtualTemperatureError', virtual_temperatureError,cat)
 
            container.replace('specificHumidity', specific_humidity,cat)
            container.replace('specificHumidityQualityMarker', specific_humidityQC,cat)
-           container.replace('specificHumidityQualityMarker', specific_humidityQC,cat)
+           container.replace('specificHumidityError', specific_humidityError,cat)
 
            container.replace('windEastward', wind_eastward,cat)
            container.replace('windNorthward', wind_northward,cat)
@@ -128,6 +123,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            ydr_paths = container.get_paths('latitude',cat)
            container.add('stationPressure', station_pressure, ydr_paths,cat)
            container.add('stationPressureQualityMarker', station_pressureQM, ydr_paths,cat)
+           container.add('stationPressureError', station_pressureError, ydr_paths,cat)
            container.add('obsSubType', obsSubType, ydr_paths,cat)
 
            new_latitudes=self._filter_identical(container,catID=cat) #identify identical obs and add to mask 
@@ -173,6 +169,12 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
                 'source': 'stationPressureQualityMarker',
                 'units': '',
                 'longName': 'Station Pressure Quality Marker',
+            },
+            {
+                'name': 'ObsError/stationPressure',
+                'source': 'stationPressureError',
+                'units': 'Pa',
+                'longName': 'Station Pressure Error',
             },
             {
                 'name': 'ObsSubType/stationPressure',

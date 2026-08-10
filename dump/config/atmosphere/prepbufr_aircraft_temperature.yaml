@@ -15,9 +15,6 @@ bufr:
       query: "*/TYP"
     specificHumidityObservationType:
       query: "*/TYP"
-    windObservationType:
-      query: "*/TYP"
-
     # MetaData
     timestamp:
       timeoffset:
@@ -58,7 +55,6 @@ bufr:
       query: "*/PRSLEVLA/IALR"
     aircraftFlightPhase:
       query: "*/PRSLEVLA/ACFT_SEQ{1}/POAF"
-
     #ObsValue
     airTemperatureObsValue:
       query: "*/PRSLEVLA/T___INFO/T__EVENT{1}/TOB"
@@ -69,11 +65,6 @@ bufr:
       type: float
       transforms:
         - scale: 0.000001
-    windEastwardObsValue:
-      query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/UOB"
-    windNorthwardObsValue:
-      query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/VOB"
-
     #QualityMarker
     pressureQualityMarker:
       query: "*/PRSLEVLA/P___INFO/P__EVENT{1}/PQM"
@@ -81,11 +72,6 @@ bufr:
       query: "*/PRSLEVLA/T___INFO/T__EVENT{1}/TQM"
     specificHumidityQualityMarker:
       query: "*/PRSLEVLA/Q___INFO/Q__EVENT{1}/QQM"
-    windEastwardQualityMarker:
-      query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/WQM"
-    windNorthwardQualityMarker:
-      query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/WQM"
-
     #ObsError
     airTemperatureObsError:
       query: "*/PRSLEVLA/T___INFO/T__BACKG/TOE"
@@ -94,9 +80,6 @@ bufr:
       type: float
       transforms:
         - scale: 0.1
-    windObsError:
-      query: "*/PRSLEVLA/W___INFO/W__BACKG/WOE"
-
 encoder:
   globals:
     - name: "platformCommonName"
@@ -134,14 +117,6 @@ encoder:
 
     - name: "ObsType/specificHumidity"
       source: variables/specificHumidityObservationType
-      longName: "Observation Type"
-
-    - name: "ObsType/windNorthward"
-      source: variables/windObservationType
-      longName: "Observation Type"
-
-    - name: "ObsType/windEastward"
-      source: variables/windObservationType
       longName: "Observation Type"
 
     # MetaData
@@ -218,16 +193,6 @@ encoder:
       longName: "Specific Humidity"
       units: "kg kg-1"
 
-    - name: "ObsValue/windEastward"
-      source: variables/windEastwardObsValue
-      longName: "U component of Wind"
-      units: "m s-1"
-
-    - name: "ObsValue/windNorthward"
-      source: variables/windNorthwardObsValue
-      longName: "V component of Wind"
-      units: "m s-1"
-
     #QualityMarker
     - name: "QualityMarker/airTemperature"
       source: variables/airTemperatureQualityMarker
@@ -236,14 +201,6 @@ encoder:
     - name: "QualityMarker/specificHumidity"
       source: variables/specificHumidityQualityMarker
       longName: "specific Humidity Quality Marker"
-
-    - name: "QualityMarker/windEastward"
-      source: variables/windEastwardQualityMarker
-      longName: "U Component of Wind Quality Marker"
-
-    - name: "QualityMarker/windNorthward"
-      source: variables/windNorthwardQualityMarker
-      longName: "V Component of Wind Quality Marker"
 
     #ObsError
     - name: "ObsError/airTemperature"
@@ -256,12 +213,3 @@ encoder:
       longName: "Specific Humidity Error"
       units: "1"
 
-    - name: "ObsError/windEastward"
-      source: variables/windObsError
-      longName: "U component of wind error"
-      units: "m s-1"
-
-    - name: "ObsError/windNorthward"
-      source: variables/windObsError
-      longName: "V component of wind error"
-      units: "m s-1"
