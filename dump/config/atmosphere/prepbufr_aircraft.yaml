@@ -17,11 +17,12 @@ bufr:
       query: "*/TYP"
     windObservationType:
       query: "*/TYP"
-
+    observationType:
+      query: "*/TYP"
     # MetaData
     timestamp:
       timeoffset:
-        timeOffset: "*/DHR"
+        timeOffset: "*/PRSLEVLA/DRFTINFO/HRDR"
         transforms:
           - scale: 3600
         referenceTime: "1970-01-01T00:00:00Z"
@@ -81,9 +82,7 @@ bufr:
       query: "*/PRSLEVLA/T___INFO/T__EVENT{1}/TQM"
     specificHumidityQualityMarker:
       query: "*/PRSLEVLA/Q___INFO/Q__EVENT{1}/QQM"
-    windEastwardQualityMarker:
-      query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/WQM"
-    windNorthwardQualityMarker:
+    windQualityMarker:
       query: "*/PRSLEVLA/W___INFO/W__EVENT{1}/WQM"
 
     #ObsError
@@ -238,11 +237,11 @@ encoder:
       longName: "specific Humidity Quality Marker"
 
     - name: "QualityMarker/windEastward"
-      source: variables/windEastwardQualityMarker
+      source: variables/windQualityMarker
       longName: "U Component of Wind Quality Marker"
 
     - name: "QualityMarker/windNorthward"
-      source: variables/windNorthwardQualityMarker
+      source: variables/windQualityMarker
       longName: "V Component of Wind Quality Marker"
 
     #ObsError

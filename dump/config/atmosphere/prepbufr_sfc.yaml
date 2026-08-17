@@ -45,6 +45,8 @@ bufr:
     height:
       query: "*/Z___INFO/Z__EVENT{1}/ZOB"
       type: float
+    heightQualityMarker:
+      query: "*/Z___INFO/Z__EVENT{1}/ZQM"
     temperatureEventCode:
       query: "*/T___INFO/T__EVENT{1}/TPC"
     pmoIndicator:
@@ -80,6 +82,8 @@ bufr:
     # QualityMarker
     pressureReducedToMeanSeaLevelQualityMarker:
       query: "*/PMSL_SEQ/PMQ"
+    pressureQualityMarker:
+      query: "*/P___INFO/P__EVENT{1}/PQM"
     stationPressureQualityMarker:
       query: "*/P___INFO/P__EVENT{1}/PQM"
     airTemperatureQualityMarker:
@@ -126,15 +130,15 @@ encoder:
   globals:
     - name: "platformCommonName"
       type: string
-      value: "SFCSHP"
+      value: "SFC/SFCSHIP"
 
     - name: "description"
       type: string
-      value: "Surface Marine (Ship, Buoy, C-MAN Platform) Reports"
+      value: "Surface (synoptic, METAR, Ship, Buoy, C-MAN Platform) Reports"
 
     - name: "platformLongDescription"
       type: string
-      value: "Surface Marine (Ship, Buoy, C-MAN Platform) Reports in prepBUFR format"
+      value: "Surface (synoptic, METAR, Ship, Buoy, C-MAN Platform) Reports in prepBUFR format"
 
     - name: "sensor"
       type: string
@@ -146,7 +150,7 @@ encoder:
 
     - name: "sourceFiles"
       type: string
-      value: "NCEP prepBUFR - SFCSHP"
+      value: "NCEP prepBUFR - SFCSHP + ADPSFC"
 
     - name: "converter"
       type: string

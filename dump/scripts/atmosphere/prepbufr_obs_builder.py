@@ -4,10 +4,9 @@ import re
 import numpy as np
 import numpy.ma as ma
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime,timezone
 import bufr
 from bufr.obs_builder import ObsBuilder
-import json
 ###############################
 def map_path(map_file_name):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,13 +20,17 @@ class PrepbufrObsBuilder(ObsBuilder):
         if blacklist_path and os.path.exists(blacklist_path):
             self._load_text_blacklist(blacklist_path)
 
-    def _compute_conditional_array(self, source_array, condition_mask):
+    def _compute_conditional_array(self, source_array, condition_mask,fill=None):
         """
         Compute an array where values from source_array are retained
-        if condition_mask is True, else fill_value is used.
+        if condition_mask is True, else fill value is used.
+        fill value defaults to array fill_value attribute but can be overriden.
         """
+        if fill is None:
+            result = np.full(source_array.shape, source_array.fill_value)
+        else:
+            result = np.full(source_array.shape, fill)
 
-        result = np.full(source_array.shape, source_array.fill_value)
         result[condition_mask] = source_array[condition_mask]
         return result
 
@@ -114,14 +117,35 @@ class PrepbufrObsBuilder(ObsBuilder):
 
         return np.asarray(mask) 
 
+    def _add_usage(self, container: bufr.DataContainer,variables,catID=[]):
+        """
+        replicates read_prepbufr assignments for GSI PreUsage 
+        """
+        latitude=container.get('latitude',catID)
+        ydr_paths = container.get_paths('latitude',catID)
+        pressure_qm=container.get('pressureQualityMarker',catID)
+        lim_qm=4
+        for var in variables:
+           var_usage=np.zeros(latitude.shape, dtype=np.int32)
+           if ((var=='windEastward')|(var=='windNorthward')):
+               qm=container.get('windQualityMarker',catID)
+           else:
+               qm=container.get('{}QualityMarker'.format(var),catID)
+           if var=='stationPressure':
+               zqm=container.get('heightQualityMarker',catID)
+               qm[(zqm>=lim_qm)&(zqm!=9)&(zqm!=15)]=9
+           var_usage[(qm==15)|(qm==12)|(qm==9)]=100
+           var_usage[qm>=lim_qm]=101
+           var_usage[pressure_qm>=lim_qm]=102
+           container.add('{}ObsUsage'.format(var),var_usage,ydr_paths,catID)
+           
+
     def _filter_identical(self, container: bufr.DataContainer,catID=[]):
         """
         Removes observations with identical lat,lon,pressure,time and station ID
-        To correspond to GSI setup scripts 
+        To correspond to GSI setup scripts. 
 
         """
-
-        # Example Data
         lat      = container.get('latitude',catID) 
         lon      = container.get('longitude',catID) 
         time     = container.get('timestamp',catID) 
@@ -148,26 +172,29 @@ class PrepbufrObsBuilder(ObsBuilder):
         duplicate_mask = np.ones(lat.shape, dtype=bool)
         duplicate_mask[first_indices] = False
 
-        # 6. Apply the mask to your MaskedArrays
-        # Using |= ensures we keep any existing masks (e.g., NaNs or errors)
-        for arr in [lat, lon, time, pressure, sid,otype]:
-            arr.mask |= duplicate_mask
-        return lat
+        # 6. Apply duplicate mask to latitude and then
+        # call 'apply_mask' with latitude to remove identical 
+        # observations and empty records from container 
+        lat.mask |= duplicate_mask
+        container.replace('latitude',lat,catID)
+        container.apply_mask(~container.get('latitude',catID).mask,catID)
 
-    def _correct_drift_times(self, container: bufr.DataContainer, reference_time: np.datetime64,catID=[]) -> np.array:
+    def _correct_drift_times(self, container: bufr.DataContainer,catID=[]) -> np.array:
         """
         where sonde data contains drift information, if high resolution time data indicates ob outside of cycle window
         then replace observation timestamp with sonde launch time 
         """
-        times = container.get('obsTimeMinusCycleTime',catID)
-        launch_times = container.get('launchTimeMinusCycleTime',catID) 
+
+        #apply drift correction
+        OTMCT = container.get('obsTimeMinusCycleTime',catID)
+        LTMCT = container.get('launchTimeMinusCycleTime',catID) 
         typ = container.get('observationType',catID)
-        timestamps = container.get('timestamp',catID) 
-        dt_launch = ma.masked_array(np.round(3600 * launch_times).astype(np.int64),
+        timestamp = container.get('timestamp',catID) 
+        dt_launch = ma.masked_array(np.round(3600 * LTMCT).astype(np.int64),
                                       dtype='timedelta64[s]')
-        drift_correction=(reference_time+dt_launch).astype('datetime64[s]').astype('int64')
-        new_timestamps = ma.masked_array(np.where((np.isin(typ,self.driftdat_types) & (np.abs(times)>3) &\
-                (~launch_times.mask)),drift_correction,timestamps),dtype='datetime64[s]',mask=timestamps.mask).astype('int64')
+        drift_correction=(timestamp+dt_launch).astype('datetime64[s]').astype('int64')
+        new_timestamps = ma.masked_array(np.where((np.isin(typ,self.driftdat_types) & (np.abs(OTMCT)>3) &\
+                (~LTMCT.mask)),drift_correction,timestamp),dtype='datetime64[s]',mask=timestamp.mask).astype('int64')
         container.replace('timestamp',new_timestamps,catID) 
 
     def _correct_surface_height(self, container: bufr.DataContainer,catID=[]) -> np.array:
@@ -180,21 +207,23 @@ class PrepbufrObsBuilder(ObsBuilder):
         selv=container.get('stationElevation',catID)
         height=container.get('height',catID)
 
-        
+        mask_280_299 = ((typ<300)&(typ>=280)) 
+        mask_221_229 = ((typ>=221)&(typ<=229))
         mask_ship = (typ==280)
         mask_atlas = (typ==282)
         mask_scatterometer=np.isin(typ, [285,289,290])
         mask_t29_ship = np.isin(t29, [522,523,531])
-        height_s0 = selv + 10.0
-        height_s1 = np.where((mask_ship) & (mask_t29_ship),20.0,height_s0)
-        height_s2 = np.where(mask_atlas,selv+20.0,height_s1)
-        height_s3 = np.where(mask_scatterometer, selv,height_s2)
-        selv_s1=np.where(mask_scatterometer,0,selv)
-        new_height=np.where(((typ<300)&(typ>=280))|((typ>=221)&(typ<=229)),height_s3,height)
-        new_selv=np.where(((typ<300)&(typ>=280))|((typ>=221)&(typ<=229)),selv_s1,selv)
+        mask_height_lte_selv = (selv >= height)
 
-        container.replace('stationElevation',new_selv,catID)
-        container.replace('height',new_height,catID)
+        height_s0 = np.where((mask_221_229 & mask_height_lte_selv),selv + 10.0, height)
+        height_s1 = np.where(mask_280_299,selv + 10.0,height_s0)
+        height_s2 = np.where((mask_280_299 & mask_ship & mask_t29_ship),20.0,height_s1)
+        height_s3 = np.where((mask_280_299 & mask_atlas),selv+20.0,height_s2)
+        new_height = np.where((mask_280_299 & mask_scatterometer), selv,height_s3)
+        new_selv = np.where((mask_280_299 & mask_scatterometer),0,selv)
+
+        container.replace('stationElevation',new_selv.astype(np.float32),catID)
+        container.replace('height',new_height.astype(np.float32),catID)
 
     def _replace_timestamp(self, container: bufr.DataContainer, reference_time: np.datetime64, catID=[]) -> np.array:
         """

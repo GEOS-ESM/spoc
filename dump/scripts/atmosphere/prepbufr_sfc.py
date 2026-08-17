@@ -14,51 +14,8 @@ MAPPING_PATH = map_path('prepbufr_sfc.yaml')
 
 class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
     def __init__(self):
-        blacklist_path=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),'gmao_global_blacklist.txt')
-        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist_path=blacklist_path)
+        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist_path=os.getenv('blacklist_path'))
 
-    def _make_description(self):
-        description = super()._make_description()
-
-        description.add_variables([
-            {
-                'name': 'MetaData/sequenceNumber',
-                'source': 'sequenceNumber',
-                'longName': 'Sequence Number (Obs Subtype)',
-            },
-            {
-                'name': 'ObsSubType/stationPressure',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            },
-            {
-                'name': 'ObsSubType/airTemperature',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            },
-            {
-                'name': 'ObsSubType/virtualTemperature',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            },
-            {
-                'name': 'ObsSubType/specificHumidity',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            },
-            {
-                'name': 'ObsSubType/windEastward',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            },
-            {
-                'name': 'ObsSubType/windNorthward',
-                'source': 'obsSubType',
-                'longName': 'Observation SubType',
-            }
-        ])
-
-        return description
 
     def make_obs(self, comm, input_path):
         """
@@ -121,13 +78,22 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            pmsl = container.get('pressureReducedToMeanSeaLevelObsValue',cat) 
            pmq = container.get('pressureReducedToMeanSeaLevelQualityMarker',cat) 
            pmin = container.get('pmoIndicator',cat)
-           station_elv = container.get('stationElevation',cat)
            obs_elv = container.get('height',cat)
-           pob_corrected = self._correct_ship_pressure(typ_drifter_correct,t29,obs_elv,pob,pmsl,pmq,pmin)
+           zqm = container.get('heightQualityMarker' ,cat)
+
+           #pressure sanity check
+           pob[pob<np.finfo(np.float32).tiny]=pob.fill_value
+
+
+           #blacklist implementation and simple QC for station pressure + humidity
            station_pressure_blacklist=self._get_blacklist(container,'ps',catID=cat)
-           station_pressure = self._compute_conditional_array(pob_corrected,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist))).astype(np.float32)
-           station_pressureQM = self._compute_conditional_array(pqm,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
-           station_pressureError = self._compute_conditional_array(poe,((pob_corrected>50000)&(pbdlcat == 0) & (~station_pressure_blacklist)))
+           station_pressure = self._compute_conditional_array(pob,((pob>50000) & (pbdlcat == 0) & (~station_pressure_blacklist))).astype(np.float32)
+           station_pressureQM = self._compute_conditional_array(pqm,((pob>50000) & (pbdlcat == 0) & (~station_pressure_blacklist)))
+           station_pressureError = self._compute_conditional_array(poe,((pob>50000) & (pbdlcat == 0) & (~station_pressure_blacklist)))
+
+           #Apply ship pressure correction
+           station_pressure  = self._correct_ship_pressure(typ_drifter_correct,t29,obs_elv,station_pressure,pob.fill_value,pmsl,pmq,pmin)
+
 
            self.log.debug(f'Do tsen and tv calculations')
            tpc = container.get('temperatureEventCode',cat)
@@ -210,9 +176,9 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
            container.add('sequenceNumber', obsSubType, dhr_paths,cat)
            container.add('obsSubType', obsSubType, dhr_paths,cat)
 
-           new_latitudes=self._filter_identical(container,catID=cat) #identify identical obs and add to mask 
-           container.replace('latitude',new_latitudes,cat)
-           container.apply_mask(~container.get('latitude',cat).mask,cat)
+           #fill preUsage variables
+           self._add_usage(container,['stationPressure','airTemperature','virtualTemperature','specificHumidity','windEastward','windNorthward'],catID=cat)
+           self._filter_identical(container,catID=cat) #remove identical observations and empty records from container 
 
         self.log.debug(f'container list (updated): {container.list()}')
         category_map = {'splits/obsType': ['sfcship','sfc']}
@@ -240,13 +206,14 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
                       ['sfc'])
         return new_container
 
-    def _correct_ship_pressure(self,typ,t29,oelv,pob,pmsl,pmq,pmin):
+    def _correct_ship_pressure(self,typ,t29,oelv,pob_val,pob_fill,pmsl,pmq,pmin):
         #performs correction of reported station pressure for ship (kx180) obs 
         #by swapping reported pressure with pressure reduced to mean sea level 
         #where available and where subtype is between 522 and 525
         mask_pmsl = ((oelv==0)&(typ==180)&(t29 >=522)&(t29 <= 525)&(pmq<4)&(np.rint(pmin)==0))
-        new_pressure=np.ma.where(mask_pmsl,pmsl,pob)
-        np.ma.set_fill_value(new_pressure, pob.fill_value)
+        new_pressure=np.full(pob_val.shape[0],pob_fill)
+        new_pressure=np.where(mask_pmsl,pmsl,pob_val)
+
         return new_pressure
     def _compute_drifting_buoys(self,typ,t29,sid):
         #changes kx values for drifting buoys idenfitied by subtype and wmo number 
@@ -261,8 +228,9 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
         mask_t29 = np.isin(t29, [562, 564])
         mask_sid = vfunc(sid).astype(bool)
         mask_all = mask_typ & mask_t29 & mask_sid
-        typ[mask_all]+=19
-        return typ
+        new_typ=typ.copy()
+        new_typ[mask_all]+=19
+        return new_typ
 
     def _compute_obssubtype(self, typ, t29):
         """ 
@@ -283,4 +251,79 @@ class SurfacePrepbufrObsBuilder(PrepbufrObsBuilder):
         return obsSubType
 
 
+    def _make_description(self):
+        description = super()._make_description()
+
+        description.add_variables([
+            {
+                'name': 'MetaData/sequenceNumber',
+                'source': 'sequenceNumber',
+                'longName': 'Sequence Number (Obs Subtype)',
+            },
+            {
+                'name': 'ObsSubType/stationPressure',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'ObsSubType/airTemperature',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'ObsSubType/virtualTemperature',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'ObsSubType/specificHumidity',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'ObsSubType/windEastward',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'ObsSubType/windNorthward',
+                'source': 'obsSubType',
+                'longName': 'Observation SubType',
+            },
+            {
+                'name': 'PreUseFlag/stationPressure',
+                'source': 'stationPressureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/airTemperature',
+                'source': 'airTemperatureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/virtualTemperature',
+                'source': 'virtualTemperatureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/specificHumidity',
+                'source': 'specificHumidityObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windEastward',
+                'source': 'windEastwardObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windNorthward',
+                'source': 'windNorthwardObsUsage',
+                'longName': 'Observation pre-Usage',
+            }
+
+        ])
+
+        return description
+
+# Add main functions create_obs_file or create_obs_group
 add_main_functions(SurfacePrepbufrObsBuilder)

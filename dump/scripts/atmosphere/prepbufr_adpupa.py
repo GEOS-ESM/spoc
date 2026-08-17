@@ -11,7 +11,6 @@ from prepbufr_obs_builder import PrepbufrObsBuilder
 from bufr.encoders import netcdf
 
 MAPPING_PATH = map_path('prepbufr_adpupa.yaml')
-FILE_ENCODER_DICT = {'netcdf': netcdf.Encoder}
 
 class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
     """
@@ -21,7 +20,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
     """
 
     def __init__(self):
-        super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__),blacklist_path='/discover/nobackup/jemccurr/bufr-query/custom_tests/gmao_global_blacklist.txt')
+        super().__init__(MAPPING_PATH, blacklist_path=os.getenv('blacklist_path'),log_name=os.path.basename(__file__))
 
 
     def make_obs(self, comm, input_path):
@@ -42,7 +41,7 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            else:
                continue 
            #make drift corrections
-           self._correct_drift_times(container, self._get_reference_time(input_path),catID=cat)
+           self._correct_drift_times(container, catID=cat)
 
            self.log.debug(f'Make an array of 0s for ObsSubType')
            obsSubType = np.zeros(hrdr.shape, dtype=np.int32)
@@ -54,10 +53,18 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            pqm = container.get('pressureQualityMarker',cat)
            poe = container.get('pressureError',cat)
 
+           #pressure sanity check
+           pob[pob<np.finfo(np.float32).tiny]=pob.fill_value
+
+           #height correction for pibal obs
+           self.log.debug(f'Do surface ob height correction')
+           self._correct_surface_height(container,cat)
+
+           #blacklist implementation and simple QC for station pressure + humidity
            station_pressure_blacklist=self._get_blacklist(container,'ps',catID=cat)
-           station_pressure = self._compute_conditional_array(pob, ((pbdlcat == 0)  & (~station_pressure_blacklist)))
-           station_pressureQM = self._compute_conditional_array(pqm,((pbdlcat == 0)  & (~station_pressure_blacklist)))
-           station_pressureError = self._compute_conditional_array(poe, ((pbdlcat == 0)  & (~station_pressure_blacklist)))
+           station_pressure = self._compute_conditional_array(pob,((pob>50000) & (pbdlcat == 0)  & (~station_pressure_blacklist)))
+           station_pressureQM = self._compute_conditional_array(pqm,((pob>50000) & (pbdlcat == 0)  & (~station_pressure_blacklist))) #blacklist and pb data lev category check
+           station_pressureError = self._compute_conditional_array(poe,((pob>50000) & (pbdlcat == 0)  & (~station_pressure_blacklist)))
 
            self.log.debug(f'Perform airTemperature, airTemperatureQM, and airTemperatureError calculations')
            tpc = container.get('temperatureEventCode',cat)
@@ -95,9 +102,9 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            qoboe = container.get('specificHumidityError',cat)
 
            specific_humidity_blacklist=self._get_blacklist(container,'q',catID=cat)
-           specific_humidity = self._compute_conditional_array(qob, (~specific_humidity_blacklist))
-           specific_humidityQC = self._compute_conditional_array(qobqm, (~specific_humidity_blacklist))
-           specific_humidityError = self._compute_conditional_array(qoboe, (~specific_humidity_blacklist))
+           specific_humidity = self._compute_conditional_array(qob,((qob<1000000000) & (~specific_humidity_blacklist)))
+           specific_humidityQC = self._compute_conditional_array(qobqm,((qob<1000000000) & (~specific_humidity_blacklist)))
+           specific_humidityError = self._compute_conditional_array(qoboe,((qob<1000000000) & (~specific_humidity_blacklist)) )
 
            self.log.debug(f'Update variables into container')
            container.replace('airTemperature', air_temperature,cat)
@@ -125,10 +132,10 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
            container.add('stationPressureQualityMarker', station_pressureQM, ydr_paths,cat)
            container.add('stationPressureError', station_pressureError, ydr_paths,cat)
            container.add('obsSubType', obsSubType, ydr_paths,cat)
-
-           new_latitudes=self._filter_identical(container,catID=cat) #identify identical obs and add to mask 
-           container.replace('latitude',new_latitudes,cat)
-           container.apply_mask(~container.get('latitude',cat).mask,cat) #remove empty subsets + identical obs
+ 
+           #add preUsage variables
+           self._add_usage(container,['stationPressure','airTemperature','virtualTemperature','specificHumidity','windEastward','windNorthward'],catID=cat) 
+           self._filter_identical(container,catID=cat) #remove identical observations and empty records from container 
 
         self.log.debug(f'container list (updated): {container.list()}')
         ##############################################
@@ -205,6 +212,36 @@ class AdpupaPrepbufrObsBuilder(PrepbufrObsBuilder):
                 'name': 'ObsSubType/windNorthward',
                 'source': 'obsSubType',
                 'longName': 'Observation SubType',
+            },
+            {
+                'name': 'PreUseFlag/stationPressure',
+                'source': 'stationPressureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/airTemperature',
+                'source': 'airTemperatureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/virtualTemperature',
+                'source': 'virtualTemperatureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/specificHumidity',
+                'source': 'specificHumidityObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windEastward',
+                'source': 'windEastwardObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windNorthward',
+                'source': 'windNorthwardObsUsage',
+                'longName': 'Observation pre-Usage',
             }
         ])
 

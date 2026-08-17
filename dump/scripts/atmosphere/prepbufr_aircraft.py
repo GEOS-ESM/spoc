@@ -23,18 +23,6 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
     def __init__(self):
         super().__init__(MAPPING_PATH, log_name=os.path.basename(__file__))
 
-    def _make_description(self):
-        description = super()._make_description()
-
-        description.add_variables([
-            {
-                'name': 'MetaData/sequenceNumber',
-                'source': 'sequenceNumber',
-                'longName': 'Sequence Number (Obs Subtype)',
-            },
-        ])
-
-        return description
 
     def make_obs(self, comm, input_path):
         """
@@ -83,9 +71,9 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
         specificHumidity = container.get('specificHumidityObsValue')
         wind = container.get('windNorthwardObsValue')
 
-        ot_airTemperature = self._compute_typ_other(t_ot, airTemperature)
-        ot_specificHumidity = self._compute_typ_other(q_ot, specificHumidity)
-        ot_wind = self._compute_typ_uv(uv_ot, wind)
+        ot_airTemperature = self._compute_typ_other(t_ot)
+        ot_specificHumidity = self._compute_typ_other(q_ot)
+        ot_wind = self._compute_typ_uv(uv_ot)
 
         self.log.debug(f'Change IALR to 0.0 if masked for bias correction.')
         ialr = container.get('instantaneousAltitudeRate')
@@ -107,14 +95,13 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
         # Check
         self.log.debug(f'container list (updated): {container.list()}')
 
-        # Remove invalid samples
-        container.apply_mask(~container.get('latitude').mask)
-        container.apply_mask(~container.get('longitude').mask)
-        container.apply_mask(~container.get('timestamp').mask)
+        #fill preUsage variables
+        self._add_usage(container,['airTemperature','specificHumidity','windEastward','windNorthward'])
+        self._filter_identical(container) #remove identical observations and empty records from container 
 
         return container
 
-    def _compute_typ_other(self, typ, var):
+    def _compute_typ_other(self, typ):
         """
         Compute datatype if the variable is not wind.
         Parameters:
@@ -131,7 +118,7 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
 
         return typ_var
 
-    def _compute_typ_uv(self, typ, var):
+    def _compute_typ_uv(self, typ):
         """
         Compute datatype if the variable is wind.
         Parameters:
@@ -182,4 +169,38 @@ class AcftProfilesPrepbufrObsBuilder(PrepbufrObsBuilder):
         return sequenceNumber
 
 
+    def _make_description(self):
+        description = super()._make_description()
+
+        description.add_variables([
+            {
+                'name': 'MetaData/sequenceNumber',
+                'source': 'sequenceNumber',
+                'longName': 'Sequence Number (Obs Subtype)',
+            },
+            {
+                'name': 'PreUseFlag/airTemperature',
+                'source': 'airTemperatureObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/specificHumidity',
+                'source': 'specificHumidityObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windEastward',
+                'source': 'windEastwardObsUsage',
+                'longName': 'Observation pre-Usage',
+            },
+            {
+                'name': 'PreUseFlag/windNorthward',
+                'source': 'windNorthwardObsUsage',
+                'longName': 'Observation pre-Usage',
+            }
+        ])
+
+        return description
+
+# Add main functions create_obs_file or create_obs_group
 add_main_functions(AcftProfilesPrepbufrObsBuilder)

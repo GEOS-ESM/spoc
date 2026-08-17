@@ -12,9 +12,6 @@ bufr:
     # ObsType
     observationType:
       query: "*/TYP"
-    observationSubType:
-      query: "*/T29"
-
     # MetaData
     timestamp:
       timeoffset:
@@ -38,6 +35,8 @@ bufr:
       query: "*/SID"
     stationElevation:
       query: "*/ELV"
+    observationSubTypeNum:
+      query: "*/T29"
     pressure:
       query: "*/PRSLEVEL/P___INFO/P__EVENT{1}/POB"
       type: float
