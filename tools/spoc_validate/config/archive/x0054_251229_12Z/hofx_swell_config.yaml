@@ -1,0 +1,67 @@
+# Config for scripts/03_setup_hofx_swell.py (Stage 3).
+# Run this after Stage 1 has populated test_directory/<obs_space>/ with a
+# converted IODA file (used by the '<obs_space>_bq' experiment's
+# activation script). Assumes `swell` (https://github.com/GEOS-ESM/swell)
+# is already installed and on PATH — this stage never tries to fetch it.
+
+# Same Obs_dict.txt used by Stage 1 — one swell hofx experiment PAIR
+# ('<obs_space>_bq' and '<obs_space>_diag') gets created per line.
+obs_dict_file: "/discover/nobackup/jemccurr/spoc_validate/config/Obs_dict.txt"
+
+# Must match test_directory used in Stage 1 (so the '<obs_space>_bq_ioda.nc4'
+# files it produced can be found for the _bq experiments' activation
+# scripts).
+test_directory: "/discover/nobackup/jemccurr/spoc_validate/work"
+
+# Base directory swell experiments get created under — passed as
+# swell's experiment_root override. Defaults to
+# <test_directory>/hofx_tests if omitted.
+# experiment_root: "/full/path/to/test_directory/hofx_tests"
+
+# Your experiment.yaml template. This is used directly as the `-o` input
+# to `swell create` (after substituting in experiment_root, experiment_id,
+# start_cycle_point, final_cycle_point — the four scalar values that are
+# necessarily experiment-specific and can't be baked into a static
+# template — plus rewriting models.geos_atmosphere.observations to just
+# the one obs space being tested), so swell processes the entire template
+# through its own create/merge logic rather than just a handful of
+# override keys. As a belt-and-suspenders step, those same substitutions
+# are then re-applied directly onto the experiment.yaml swell actually
+# generates, in case swell's own merge doesn't preserve them exactly as
+# given. Every other setting comes from your template as-is.
+experiment_template_file: "/discover/nobackup/jemccurr/SwellExperiments/swell-hofx/swell-hofx-suite/experiment.yaml"
+
+# Full path to the hofx test executable. A generated
+# 'activate_hofx_run.py' script (one per experiment, written into
+# hofx_tests/<experiment_id>/) copies this into the run directory —
+# you run that script yourself *after* `swell launch` finishes for that
+# experiment. For '<obs_space>_bq' experiments, the same script also
+# swaps in the SPOC/bufr-query converted IODA file by default (pass
+# --no-replace-obs to skip that, or --replace-obs on a _diag experiment's
+# script if you ever want to force it — though there's nothing to swap in
+# there without a SPOC file).
+hofx_test_executable: "/discover/nobackup/jemccurr/SwellExperiments/swell-hofx/run_newyaml_bq/20231010T000000Z/geos_atmosphere/run_test_3dfgat.j"
+
+# Optional: override the `swell` command if it's not on PATH under that
+# name (e.g. a full path, or a different executable name).
+# swell_command: "swell"
+
+# Optional HPC module-environment setup for the `swell create` step, if
+# swell needs a conflicting module environment from the one used for the
+# SPOC/bufr-query conversion (Stages 1/2). Set swell_module_dir AND
+# swell_module_name together to enable this — `swell create` then runs
+# inside a throwaway `bash -lc "module purge && source <spack-stack> &&
+# module use -a <dir> && module load <name> && swell create ..."`
+# subprocess instead of the plain command. Leave both unset to run swell
+# as-is in whatever environment this script itself is running in. No
+# cleanup/restore step is needed afterward: each subprocess call here
+# (both this one and the plain conversion calls in Stage 1) is already
+# its own isolated process, so there's nothing to leak.
+swell_module_dir: "/discover/nobackup/jemccurr/swell/modulefiles/core"
+swell_module_name: "swell/jemccurr/swell_0414_2026b"
+
+# Optional: spack-stack setup script sourced before the module use/load
+# above. Defaults to the shared project path (same for everyone) if
+# omitted — set here explicitly since it matches the shared default
+# anyway, but harmless either way.
+spack_stack_setup_script: "/discover/nobackup/projects/gmao/advda/swell/jedi_modules/spackstack_1.9_intel_bundle"

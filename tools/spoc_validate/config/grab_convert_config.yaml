@@ -1,0 +1,50 @@
+# Config for scripts/01_grab_and_convert.py (Stage 1) and
+# scripts/02_compare_files.py (Stage 2, optional — reuses this same file).
+
+# SPOC git tag to validate, e.g. "v3.2.0". Set exactly ONE of repo_tag /
+# repo_branch / repo_local_path (see below).
+#repo_tag: "v3.2.0"
+#
+# repo_branch: a git branch, e.g. "feature/new-adpupa" or "develop".
+# Uncomment this and comment out repo_tag/repo_local_path to use a branch
+# instead:
+#repo_branch: "jemccurr/conventional_data"
+#
+# repo_local_path: a local SPOC checkout to use as-is — including any
+# uncommitted/unpushed changes — instead of fetching anything from GitHub.
+# Useful for testing experimental local edits before pushing. No caching,
+# no git operations at all beyond an optional best-effort HEAD/dirty-status
+# read for provenance; the directory is used directly.
+repo_local_path: "/discover/nobackup/jemccurr/GEOS_SPOC_dev"
+
+# Path to your Obs_dict.txt: a plain-text file, one line per JEDI obs
+# space, each line "<jedi_obs_space> <spoc_script_basename> <bufr_path>"
+# (whitespace-separated). The script basename's extension is ignored —
+# only its prefix is used to look up both '<prefix>.py' and
+# '<prefix>.yaml' in the SPOC repo. Multiple obs spaces can share the same
+# script + bufr file (normal when one conversion script splits its output
+# across several obs spaces, e.g. prepbufr_adpupa.py -> 'sonde' + 'pibal').
+# Example line:
+#   sondes prepbufr_adpupa.yaml /path/to/gdas1.20251129.12z.prepbufr
+obs_dict_file: "/discover/nobackup/jemccurr/spoc_validate/config/Obs_dict.txt"
+
+# Full path to the directory where per-obs-space subdirectories (one per
+# line of Obs_dict.txt) and the shared _conversions/ working directories
+# will be created. Will be created if it doesn't exist.
+test_directory: "/discover/nobackup/jemccurr/spoc_validate/work"
+
+# Used by Stage 2 only, to locate ncdiag comparison files: the same swell
+# experiment.yaml/template used in hofx_swell_config.yaml (should match
+# that file's experiment_template_file). Stage 2 reads
+# models.<model>.ioda_locations_not_in_r2d2 out of it, and looks for each
+# obs space's ncdiag file at
+# <that path>/<cycle_compact>/geos_atmosphere/<obs_space>.<cycle_compact>.nc4
+# — no manually pre-populated ncdiag directory or link-matching needed
+# anymore.
+experiment_template_file: "/home/jemccurr/cylc-run/swell-hofx-suite/run30/experiment.yaml"
+
+# Optional: where to cache the git checkout of the SPOC repo so repeated
+# runs against the same tag/branch don't re-clone. Defaults to
+# <test_directory>/.spoc_repo_cache if omitted. Unused while
+# repo_local_path is set (no git checkout happens in that case).
+# repo_cache_directory: "/full/path/to/repo_cache"

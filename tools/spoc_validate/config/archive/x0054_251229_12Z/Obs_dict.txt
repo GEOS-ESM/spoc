@@ -1,0 +1,13 @@
+sondes prepbufr_adpupa.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/PREPBUFR/Y2025/M12/gdas1.251229.t12z.prepbufr
+
+sfc prepbufr_sfc.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/PREPBUFR/Y2025/M12/gdas1.251229.t12z.prepbufr
+
+sfcship prepbufr_sfc.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/PREPBUFR/Y2025/M12/gdas1.251229.t12z.prepbufr
+
+pibal prepbufr_adpupa.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/PREPBUFR/Y2025/M12/gdas1.251229.t12z.prepbufr
+
+aircraft_wind prepbufr_aircraft_temperature.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/AIRCFT/Y2025/M12/gdas1.20251229.t12z.prepbufr.acft_profiles
+
+aircraft_temperature prepbufr_aircraft_wind.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/AIRCFT/Y2025/M12/gdas1.20251229.t12z.prepbufr.acft_profiles
+
+aircraft prepbufr_aircraft.yaml /discover/nobackup/projects/gmao/input/dao_ops/ops/flk/ncep_g5obs/bufr/AIRCFT/Y2025/M12/gdas1.20251229.t12z.prepbufr.acft_profiles
