@@ -34,7 +34,7 @@ bufr:
     sensorScanPosition:
       sensorScanPosition:
         fieldOfViewNumber: "*/FOVN"
-        sensor: iasi 
+        sensor: iasi
 
     solarZenithAngle:
       query: "*/SOZA"
@@ -50,14 +50,14 @@ bufr:
 
     stationElevation:
       query: "*/SELV"
-      type: float 
+      type: float
 
     sensorViewAngle:
       sensorScanAngle:
         fieldOfViewNumber: "*/FOVN"
         scanStart: -48.330
         scanStep: 3.334
-        scanStepAdjust: 0.625 
+        scanStepAdjust: 0.625
         sensor: iasi
 
     sensorChannelNumber:
@@ -68,7 +68,7 @@ bufr:
       query: "*/IASIL1CS{1}/FCPH"
       type: float
       transforms:
-        - scale: 0.01
+        - scale: 1.00
 
     spectralRadiance:
       spectralRadiance:
@@ -88,6 +88,7 @@ bufr:
           _5: metop-c
 
 encoder:
+
   dimensions:
     - name: Channel
       source: variables/sensorChannelNumber
@@ -104,7 +105,7 @@ encoder:
 
     - name: "platformLongDescription"
       type: string
-      value: "Meteorological Operational Satellite"
+      value: "EUMETSAT Polar System in sunsynchronous orbit"
 
     - name: "sensorCommonName"
       type: string
@@ -131,8 +132,7 @@ encoder:
       value: "bufr-query"
 
   variables:
-
-    # MetaData 
+    # MetaData
     - name: "MetaData/dateTime"
       source: variables/timestamp
       longName: "Datetime"
@@ -212,17 +212,14 @@ encoder:
       source: variables/sensorChannelNumber
       longName: "Sensor Channel Number"
 
-    - name: "ObsValue/cloudFree"
+    - name: "MetaData/fractionOfClearPixelsInFOV"
       source: variables/fractionOfClearPixelsInFOV
       longName: "Fraction of Clear Pixels in a Field of View"
       units: "1"
-      range: [ 0, 1 ]
+      range: [0, 100]
 
-    - name: "ObsValue/spectralRadiance"
+    - name: "ObsValue/radiance"
       source: variables/spectralRadiance
       longName: "IASI Spectral Radiance"
       units: "W m-2 sr-1 m-1"
-#      chunks: [1000, 154]
-#      chunks: [1000, 616]
-#      compressionLevel: 4
 
