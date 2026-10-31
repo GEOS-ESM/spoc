@@ -97,7 +97,7 @@ encoder:
 
     - name: "sensorLongDescription"
       type: string
-      value: "Advanced Baseline Imager (ATMS) - 22 channels including the 54 and 183 GHz bands; cross-track scanning"
+      value: "Advanced Technology Microwave Sounder (ATMS) - 22 channels including the 54 and 183 GHz bands; cross-track scanning"
 
     - name: "source"
       type: string

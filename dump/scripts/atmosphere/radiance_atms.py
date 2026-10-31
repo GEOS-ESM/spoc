@@ -6,9 +6,8 @@ import numpy.ma as ma
 import bufr
 from bufr.obs_builder import ObsBuilder, add_main_functions, map_path
 
-
 MAPPING_PATH = map_path('radiance_atms.yaml')
-
+scan_interval = 8/3
 
 class BufrAtmsObsBuilder(ObsBuilder):
     def __init__(self):
@@ -31,12 +30,25 @@ class BufrAtmsObsBuilder(ObsBuilder):
             satId = container.get('satelliteId', cat)
             if not np.any(satId):
                 self.log.warning(f'category {cat[0]} does not exist in input file')
+                continue
+
+            ifov = container.get('fieldOfViewNumber', cat)
+            time = container.get('timestamp', cat)
+            mintime = np.min(time)
+            iscan = np.round((time - mintime) / scan_interval) + 1
+            iscan = iscan.astype(int)
+
+            mask_skip = (iscan % 5 == 0) & ((ifov - 3) % 5 == 0)
+            container.apply_mask(mask_skip, cat)
+
+            ifov = container.get('fieldOfViewNumber', cat)
+            mask_edge = ((ifov >= 7) & (ifov <= 90))
+            container.apply_mask(mask_edge, cat)
 
         # Check
         self.log.debug(f'container list (updated): {container.list()}')
         self.log.debug(f'all_sub_categories {container.all_sub_categories()}')
 
         return container
-
 
 add_main_functions(BufrAtmsObsBuilder)
