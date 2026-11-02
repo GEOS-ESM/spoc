@@ -85,6 +85,10 @@ class BufrGsrasrObsBuilder(ObsBuilder):
 
             satId = container.get('satelliteId', cat)
 
+            # remove fileofViewnumber from 1 to cut_spot and from 399 to ngac
+            mask_edge = ((fieldOfViewNumber > cut_spot) & (fieldOfViewNumber <= ngac-cut_spot))
+            container.apply_mask(mask_edge, cat)
+
             if not np.any(satId):
                 self.log.warning(f'Category {cat[0]} does not exist in input file')
                 continue  # Skip invalid category

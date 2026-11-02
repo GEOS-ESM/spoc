@@ -9,7 +9,7 @@ from bufr.obs_builder import ObsBuilder, add_main_functions, map_path
 MAPPING_PATH = map_path('radiance_airs.yaml')
 
 BUFR_TABLE_PATH = os.getenv('BUFR_TABLE_PATH')
-#print(f'BUFR_TABLE_PATH: {BUFR_TABLE_PATH}')
+print(f'BUFR_TABLE_PATH: {BUFR_TABLE_PATH}')
 
 
 class BufrAIRSObsBuilder(ObsBuilder):
@@ -32,6 +32,11 @@ class BufrAIRSObsBuilder(ObsBuilder):
             satId = container.get('satelliteId', cat)
             satId[:] = 49
             container.replace('satelliteId',satId,cat)
+
+            # remove fieldOfViewNumber from 1 to 9 and from 82 to 90
+            ifov = container.get('fieldOfViewNumber', cat)
+            mask_edge = ((ifov >= 10) & (ifov <= 81))
+            container.apply_mask(mask_edge, cat)
 
             if not np.any(satId):
                 self.log.warning(f'Category {cat[0]} does not exist in input file')

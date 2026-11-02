@@ -32,6 +32,21 @@ class BufrIasiObsBuilder(ObsBuilder):
             if not np.any(satId):
                 self.log.warning(f'category {cat[0]} does not exist in input file')
 
+            # remove sensorScanPosition from 1 to 4 and from 57 to 60
+            ifov = container.get('sensorScanPosition', cat)
+            mask_edge = ((ifov >= 5) & (ifov <= 56))
+            container.apply_mask(mask_edge, cat)
+
+            # remove non-zero data quality Flag
+            qFlags = container.get('gqisFlagQual', cat)
+            mask_edge = (qFlags == 0)
+            container.apply_mask(mask_edge, cat)
+
+            # remove scanLineNumber with value of -1
+            sLNumber = container.get('scanLineNumber', cat)
+            mask_edge = (sLNumber != -1)
+            container.apply_mask(mask_edge, cat)
+
         # Check
         self.log.debug(f'container list (updated): {container.list()}')
         self.log.debug(f'all_sub_categories {container.all_sub_categories()}')
