@@ -60,9 +60,9 @@ bufr:
     # ObsValue
     cloudCoverTotal:
       query: "*/TOCC"
-      type: float 
+      type: float
       transforms:
-        - scale: 0.01
+        - scale: 1.00
 
     cloudTopHeight:
       query: "*/HOCT"
@@ -127,7 +127,7 @@ encoder:
 
   variables:
 
-    # MetaData 
+    # MetaData
     - name: "MetaData/dateTime"
       source: variables/timestamp
       longName: "Datetime"
@@ -202,18 +202,18 @@ encoder:
       source: variables/sensorChannelNumber
       longName: "Sensor Channel Number"
 
-    - name: "ObsValue/cloudCoverTotal"
+    - name: "MetaData/cloudCoverTotal"
       source: variables/cloudCoverTotal
       longName: "Total Cloud Cover"
       units: "1"
-      range: [ 0, 1 ]
+      range: [ 0, 100 ]
 
-    - name: "ObsValue/heightOfTopOfCloud"
+    - name: "MetaData/heightOfTopOfCloud"
       source: variables/cloudTopHeight
       longName: "Height of Top of Cloud"
       units: "m"
 
-    - name: "ObsValue/spectralRadiance"
+    - name: "ObsValue/radiance"
       source: variables/spectralRadiance
       longName: "CrIS Spectral Radiance"
       units: "W m-2 sr-1 m-1"
