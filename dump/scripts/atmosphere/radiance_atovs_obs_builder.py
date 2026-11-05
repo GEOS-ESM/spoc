@@ -210,6 +210,3 @@ class AtovsObsBuilder(ObsBuilder):
                 ifov = container.get('fieldOfViewNumber', sat_id)
                 tb = self._apply_corr(sat_id[0], ta, ifov, feed_type=feed_type, sacv=sacv_flag)
                 container.replace('brightnessTemperature', tb, sat_id)
-
-                mask = ((ifov >= 4) & (ifov <=27))
-                container.apply_mask(mask, sat_id)
