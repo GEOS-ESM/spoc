@@ -1,16 +1,4 @@
 bufr:
-  splits:
-    satId:
-      category:
-        map:
-          #_206: n15
-          #_209: n18
-          #_223: n19
-          _3: metop-b
-          #_4: metop-a
-          _5: metop-c
-        variable: satelliteId
-
   variables:
     brightnessTemperature:
       query: '*/BRITCSTC/TMBR'
@@ -64,6 +52,18 @@ bufr:
         month: '*/MNTH'
         second: '*/SECO'
         year: '*/YEAR'
+
+  splits:
+    satId:
+      category:
+        variable: satelliteId
+        map:
+          #_206: n15
+          #_209: n18
+          #_223: n19
+          _3: metop-b
+          #_4: metop-a
+          _5: metop-c
 
 encoder:
   backend: netcdf
