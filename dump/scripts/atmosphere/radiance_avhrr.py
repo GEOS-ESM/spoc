@@ -33,6 +33,12 @@ class BufrGsrasrObsBuilder(ObsBuilder):
         for cat in container.all_sub_categories():
             self.log.debug(f'category: {cat}')
 
+            satId = container.get('satelliteId', cat)
+
+            if not np.any(satId):
+                self.log.warning(f'Category {cat[0]} does not exist in input file')
+                continue  # Skip invalid category
+
             sensor_channel_num = container.get('sensorChannelNumber', cat)
 
             sensor_channel_num[:, 0] = 3
@@ -83,15 +89,9 @@ class BufrGsrasrObsBuilder(ObsBuilder):
             # add the sensorViewAngle array to the bufr container
             container.add('sensorViewAngle', scan_angle, paths, cat)
 
-            satId = container.get('satelliteId', cat)
-
             # remove fileofViewnumber from 1 to cut_spot and from 399 to ngac
             mask_edge = ((fieldOfViewNumber > cut_spot) & (fieldOfViewNumber <= ngac-cut_spot))
             container.apply_mask(mask_edge, cat)
-
-            if not np.any(satId):
-                self.log.warning(f'Category {cat[0]} does not exist in input file')
-                continue  # Skip invalid category
 
         # Final container state
         self.log.debug(f'Container list (updated): {container.list()}')
