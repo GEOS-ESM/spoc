@@ -215,7 +215,7 @@ encoder:
     - name: "MetaData/fractionOfClearPixelsInFOV"
       source: variables/fractionOfClearPixelsInFOV
       longName: "Fraction of Clear Pixels in a Field of View"
-      units: "1"
+      units: "1" # Percentage (0–100)
       range: [0, 100]
 
     - name: "ObsValue/radiance"

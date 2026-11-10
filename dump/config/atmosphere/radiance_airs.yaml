@@ -186,7 +186,7 @@ encoder:
     - name: "MetaData/cloudCoverTotal"
       source: variables/cloudCoverTotal
       longName: "Total Cloud Cover"
-      units: "1"
+      units: "1" # Percentage (0–100)
       range: [ 0, 100 ]
 
     - name: "ObsValue/brightnessTemperature"
