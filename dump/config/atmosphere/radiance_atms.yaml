@@ -185,4 +185,3 @@ encoder:
       source: variables/remappedBT
       longName: "3-by-3 Averaged Brightness Temperature"
       units: "K"
-      chunks: [10000, 22]
