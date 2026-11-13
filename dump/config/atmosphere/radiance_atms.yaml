@@ -132,6 +132,7 @@ encoder:
       source: variables/longitude
       longName: "Longitude"
       units: "degree_east"
+      range: [-180, 180]
 
     - name: "MetaData/satelliteIdentifier"
       source: variables/satelliteId
