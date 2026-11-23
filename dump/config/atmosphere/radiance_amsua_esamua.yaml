@@ -8,7 +8,7 @@ bufr:
           _3: metop-b
           _4: metop-a
           _5: metop-c
-        variable: satelliteIdentifier
+        variable: satelliteId
 
   variables:
     brightnessTemperature:
@@ -29,7 +29,7 @@ bufr:
     longitude:
       query: '*/CLONH'
 
-    satelliteIdentifier:
+    satelliteId:
       query: '*/SAID'
 
     sensorAzimuthAngle:
@@ -85,7 +85,7 @@ encoder:
   variables:
   - name: MetaData/satelliteIdentifier
     longName: Satellite Identifier
-    source: variables/satelliteIdentifier
+    source: variables/satelliteId
 
   - name: MetaData/sensorScanPosition
     longName: Field Of View Number
