@@ -42,7 +42,8 @@ class BufrSsmisObsBuilder(ObsBuilder):
             if nlocs == 0:
                 self.log.warning(f"Writing empty file for empty category {cat[0]}")
             self._add_sensor_zenith_and_solar_angles(container, cat)
-            self._add_satellite_ascend_descent_orbit(container, cat)
+##            self._add_satellite_ascend_descent_orbit(container, cat)
+            self._add_gsi_compatible_ascend_descent(container, cat)
 
         # Check
         self.log.debug(f'container list (updated): {container.list()}')
@@ -62,6 +63,96 @@ class BufrSsmisObsBuilder(ObsBuilder):
 
         return description
 
+
+    def _add_gsi_compatible_ascend_descent(self, container, category):
+        """
+        Determine satellite orbit type (ascending or descending) based on latitude changes.
+
+        :param container: Observation data container.
+        :type container: Container
+        :param category: Data category to process.
+        :type category: str
+        """
+
+        satId = container.get('satelliteId', category)
+
+        if not satId.size:
+            add_dummy_variable(container, 'satelliteAscendingFlag', category, 'satelliteId')
+            return
+        else:
+            # Get data from container
+            time = container.get('timestamp', category)
+            lat = container.get('latitude', category)
+            lon = container.get('longitude', category)
+            fov = container.get('fieldOfViewNumber', category)
+
+            num_obs = len(time)
+            node_inout = np.zeros(num_obs, dtype=np.int32)
+
+            sort_indices = np.argsort(time)
+
+            MAX_FOV = 60
+            AS_NODE = 1
+            DS_NODE = -1
+
+    # Determine scan line index for each observation
+            scanline = np.zeros(num_obs, dtype=int)
+            t1 = time[sort_indices[0]]
+            nscan = 1
+            scanline[sort_indices[0]] = nscan
+
+            for iobs in range(1, num_obs):
+                t2 = time[sort_indices[iobs]]
+                tdiff = t2 - t1
+                if tdiff >= 0.9000:
+                    nscan += 1
+                t1 = t2
+                scanline[sort_indices[iobs]] = nscan
+
+            max_scan = np.max(scanline)
+
+    # Allocate and initialize 2D arrays (shape: [MAX_FOV, max_scan])
+            missing_value = bufr.get_missing_value(np.float64)
+
+            latitude = np.full((MAX_FOV, max_scan), missing_value, dtype=np.float64)
+            scanline_back = np.full((MAX_FOV, max_scan), -1, dtype=int)
+            nodeinfo = np.full((MAX_FOV, max_scan), 1000, dtype=int)
+
+    # Map 1D observations to 2D scanline grid (adjusting 1-based FOV/scanline to 0-based indexing)
+            for iobs in range(num_obs):
+                ifov_idx = fov[iobs] - 1          # 1-based fov -> 0-based index
+                iscan_idx = scanline[iobs] - 1    # 1-based scanline -> 0-based index
+                latitude[ifov_idx, iscan_idx] = lat[iobs]
+                scanline_back[ifov_idx, iscan_idx] = iobs  # 0-based observation index
+
+    # Determine ascending/descending node for each scanline
+            for iscan in range(max_scan - 1):
+                for ifov in range(MAX_FOV):
+            # Check if both current and next scanlines have valid observations at this FOV
+                    if scanline_back[ifov, iscan] >= 0 and scanline_back[ifov, iscan + 1] >= 0:
+                        dlat = latitude[ifov, iscan + 1] - latitude[ifov, iscan]
+                        if dlat < 0.0:
+                            nodeinfo[:, iscan] = DS_NODE
+                        else:
+                            nodeinfo[:, iscan] = AS_NODE
+                        break  # Cycle loop1 (moves to next scan line)
+
+    # Set last scanline's node equal to the second-to-last
+            if max_scan > 1:
+                nodeinfo[:, max_scan - 1] = nodeinfo[:, max_scan - 2]
+
+    # Write back node status to node_inout array
+            for iscan in range(max_scan):
+                for ifov in range(MAX_FOV):
+                    iobs = scanline_back[ifov, iscan]
+                    if iobs >= 0:
+                        node_inout[iobs] = nodeinfo[ifov, iscan]
+
+            paths = container.get_paths('fieldOfViewNumber', category)
+            self.log.debug(f'paths = {paths}')
+
+        container.add('satelliteAscendingFlag', node_inout, paths, category)
+
     def _add_satellite_ascend_descent_orbit(self, container, category):
         """
         Determine satellite orbit type (ascending or descending) based on latitude changes.
@@ -80,6 +171,7 @@ class BufrSsmisObsBuilder(ObsBuilder):
         else:
             # Get data from container
             # ephemeris data - latitude values in order of time
+
             first_lat = container.get('latitude1', category)
             self.log.debug(f'first_lat min/max = {first_lat.min()} {first_lat.max()}')
             second_lat = container.get('latitude2', category)
@@ -147,7 +239,6 @@ class BufrSsmisObsBuilder(ObsBuilder):
         sensor_azimuth = np.zeros_like(latitudes, dtype=np.float32)
         container.add('sensorZenithAngle', sensor_zenith, paths, category)
         container.add('sensorAzimuthAngle', sensor_azimuth, paths, category)
-
 
 # Add main functions create_obs_file or create_obs_group
 add_main_functions(BufrSsmisObsBuilder)

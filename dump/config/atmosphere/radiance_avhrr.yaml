@@ -25,7 +25,7 @@ bufr:
 
     satelliteZenithAngle:
       query: "*/SAZA"
- 
+
     solarZenithAngle:
       query: "*/SOZA"
 
@@ -36,14 +36,14 @@ bufr:
       query: "*/CLAVR"
 
     sensorChannelNumber:
-      query: "*/AVCSEQ/INCN"
+      query: "*/AVCSEQ{3-5}/INCN"
 
     albedo:
-      query: "*/AVCSEQ/ALBD"
+      query: "*/AVCSEQ{3-5}/ALBD"
 
     # ObsValue
     brightnessTemperature:
-      query: "*/AVCSEQ/TMBR"
+      query: "*/AVCSEQ{3-5}/TMBR"
 
 
   splits:
@@ -56,6 +56,12 @@ bufr:
           _5: metop-c
 
 encoder:
+
+  dimensions:
+    - name: "Channel"
+      path: "*/AVCSEQ{3-5}"
+      labels: "3-5"
+
   globals:
     - name: "description"
       type: string
@@ -72,10 +78,6 @@ encoder:
     - name: "sensorCommonName"
       type: string
       value: "AVHRR"
-
-    - name: "sensorLongDescription"
-      type: string
-      value: ""
 
     - name: "source"
       type: string
@@ -95,7 +97,7 @@ encoder:
 
   variables:
 
-    # MetaData 
+    # MetaData
     - name: "MetaData/dateTime"
       source: variables/timestamp
       longName: "Datetime"
@@ -117,7 +119,7 @@ encoder:
       source: variables/satelliteId
       longName: "Satellite Identifier"
 
-    - name: "MetaData/satelliteZenithAngle"
+    - name: "MetaData/sensorZenithAngle"
       source: variables/satelliteZenithAngle
       longName: "Satellite Zenith Angle"
       units: "degree"
